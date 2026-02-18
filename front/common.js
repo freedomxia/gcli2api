@@ -1000,7 +1000,7 @@ function triggerTabDataLoad(tabName) {
     if (tabName === 'manage') AppState.creds.refresh();
     if (tabName === 'antigravity-manage') AppState.antigravityCreds.refresh();
     if (tabName === 'config') loadConfig();
-    if (tabName === 'plugin') loadPluginConfig();
+    if (tabName === 'models-api') loadModelsApiInfo();
     if (tabName === 'logs') connectWebSocket();
 }
 
@@ -3152,82 +3152,118 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 // =====================================================================
-// 插件连接相关函数
+// 模型与API信息
 // =====================================================================
 
-async function loadPluginConfig() {
+async function loadModelsApiInfo() {
     try {
-        // 加载当前配置
-        const configResp = await fetch('/config/get', {
-            headers: { 'Authorization': 'Bearer ' + AppState.authToken }
+        const resp = await fetch('/models-info/list', {
+            headers: getAuthHeaders()
         });
-        if (configResp.ok) {
-            const data = await configResp.json();
-            const cfg = data.config || {};
-            const tokenInput = document.getElementById('pluginToken');
-            if (tokenInput && cfg.plugin_connection_token) {
-                tokenInput.value = cfg.plugin_connection_token;
-            }
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+
+        // 渲染 API Key
+        const apiKeyInput = document.getElementById('modelsApiKey');
+        if (apiKeyInput) {
+            apiKeyInput.dataset.realValue = data.api_key || '';
+            apiKeyInput.value = '••••••••••••';
+            apiKeyInput.dataset.visible = 'false';
         }
 
-        // 更新 API URL 显示
-        const apiUrlEl = document.getElementById('pluginApiUrl');
-        if (apiUrlEl) {
-            apiUrlEl.textContent = window.location.origin + '/api/plugin/update-token';
-        }
+        const origin = window.location.origin;
+        const formatLabels = { openai: 'OpenAI', gemini: 'Gemini', anthropic: 'Anthropic (Claude)' };
 
-        // 加载插件状态
-        const statusResp = await fetch('/api/plugin/status');
-        if (statusResp.ok) {
-            const status = await statusResp.json();
-            const statusEl = document.getElementById('pluginStatusContent');
-            if (statusEl) {
-                if (status.enabled) {
-                    statusEl.innerHTML = '<p style="color: #28a745; font-weight: bold;">✅ 插件连接已启用</p>' +
-                        '<p style="color: #555;">外部 Token Updater 可以通过 API 推送凭证。</p>';
-                } else {
-                    statusEl.innerHTML = '<p style="color: #ff9800; font-weight: bold;">⚠️ 插件连接未配置</p>' +
-                        '<p style="color: #555;">请设置连接 Token 后保存。</p>';
-                }
-            }
-        }
+        // 渲染 GCLI 端点
+        renderEndpointsTable('gcliEndpointsBody', data.api_endpoints?.gcli || {}, origin, formatLabels);
+
+        // 渲染 Antigravity 端点
+        renderEndpointsTable('antigravityEndpointsBody', data.api_endpoints?.antigravity || {}, origin, formatLabels);
+
+        // 渲染 GCLI 模型列表
+        const gcliModels = data.gcli_models || [];
+        document.getElementById('gcliModelCount').textContent = `(${gcliModels.length} 个模型)`;
+        renderModelList('gcliModelList', gcliModels);
+
+        // 渲染 Antigravity 模型列表
+        const agModels = data.antigravity_models || [];
+        const agModelNames = agModels.map(m => typeof m === 'string' ? m : m.id);
+        document.getElementById('antigravityModelCount').textContent = agModelNames.length > 0
+            ? `(${agModelNames.length} 个模型)`
+            : '(暂无凭证，无法获取)';
+        renderModelList('antigravityModelList', agModelNames);
+
     } catch (e) {
-        console.error('加载插件配置失败:', e);
+        console.error('加载模型信息失败:', e);
+        showStatus('加载模型信息失败，请重试', 'error');
     }
 }
 
-function generatePluginToken() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let token = 'gcli2api_';
-    for (let i = 0; i < 32; i++) {
-        token += chars.charAt(Math.floor(Math.random() * chars.length));
+function renderEndpointsTable(tbodyId, endpoints, origin, formatLabels) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    let html = '';
+    for (const [fmt, paths] of Object.entries(endpoints)) {
+        const label = formatLabels[fmt] || fmt;
+        for (const path of paths) {
+            const fullUrl = origin + path;
+            html += `<tr>
+                <td style="padding: 8px; border: 1px solid #dee2e6; white-space: nowrap;">${label}</td>
+                <td style="padding: 8px; border: 1px solid #dee2e6; font-family: monospace; font-size: 12px; word-break: break-all;">${fullUrl}</td>
+                <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">
+                    <button class="cred-btn download" onclick="copyModelsText('${fullUrl.replace(/'/g, "\\'")}')">📋</button>
+                </td>
+            </tr>`;
+        }
     }
-    document.getElementById('pluginToken').value = token;
+    tbody.innerHTML = html || '<tr><td colspan="3" style="padding: 8px; text-align: center; color: #999;">无数据</td></tr>';
 }
 
-async function savePluginConfig() {
-    const token = document.getElementById('pluginToken').value.trim();
-
-    try {
-        const resp = await fetch('/config/save', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + AppState.authToken
-            },
-            body: JSON.stringify({
-                config: { plugin_connection_token: token }
-            })
-        });
-
-        if (resp.ok) {
-            showStatus('插件配置已保存', 'success');
-            loadPluginConfig();
-        } else {
-            const err = await resp.json();
-            showStatus('保存失败: ' + (err.detail || '未知错误'), 'error');
-        }
-    } catch (e) {
-        showStatus('保存失败: ' + e.message, 'error');
+function renderModelList(containerId, models) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (!models || models.length === 0) {
+        container.innerHTML = '<div style="color: #999; padding: 5px;">暂无模型数据</div>';
+        return;
     }
+    container.innerHTML = models.map(m =>
+        `<span style="display: inline-block; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 4px; padding: 3px 8px; margin: 3px; font-size: 12px; font-family: monospace;">${m}</span>`
+    ).join('');
+}
+
+function toggleModelList(section) {
+    const list = document.getElementById(section + 'ModelList');
+    const toggle = document.getElementById(section + 'ModelToggle');
+    if (!list || !toggle) return;
+    if (list.style.display === 'none') {
+        list.style.display = 'block';
+        toggle.textContent = '▼ 折叠';
+    } else {
+        list.style.display = 'none';
+        toggle.textContent = '▶ 展开';
+    }
+}
+
+function toggleApiKeyVisibility() {
+    const input = document.getElementById('modelsApiKey');
+    const btn = document.getElementById('apiKeyToggleBtn');
+    if (!input) return;
+    if (input.dataset.visible === 'true') {
+        input.value = '••••••••••••';
+        input.dataset.visible = 'false';
+        if (btn) btn.textContent = '👁 显示';
+    } else {
+        input.value = input.dataset.realValue || '';
+        input.dataset.visible = 'true';
+        if (btn) btn.textContent = '🙈 隐藏';
+    }
+}
+
+function copyModelsText(text) {
+    if (!text) { showStatus('无内容可复制', 'warning'); return; }
+    navigator.clipboard.writeText(text).then(() => {
+        showStatus('已复制到剪贴板', 'success');
+    }).catch(() => {
+        showStatus('复制失败', 'error');
+    });
 }

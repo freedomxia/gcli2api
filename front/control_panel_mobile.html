@@ -1011,7 +1011,7 @@
                 <button class="tab" onclick="switchTab('manage')">GCLI凭证</button>
                 <button class="tab" onclick="switchTab('antigravity-manage')">AG凭证</button>
                 <button class="tab" onclick="switchTab('config')">配置管理</button>
-                <button class="tab" onclick="switchTab('plugin')">插件连接</button>
+                <button class="tab" onclick="switchTab('models-api')">模型API</button>
                 <button class="tab" onclick="switchTab('logs')">实时日志</button>
                 <button class="tab" onclick="switchTab('about')">项目信息</button>
             </div>
@@ -1891,35 +1891,80 @@
                 </div>
             </div>
 
-            <!-- 插件连接标签页 -->
-            <div id="pluginTab" class="tab-content">
-                <h3>🔌 插件连接</h3>
-                <p>配置外部 Token Updater 自动推送凭证</p>
+            <!-- 模型与API标签页 -->
+            <div id="models-apiTab" class="tab-content">
+                <h3>模型与API</h3>
+                <p>查看可用模型及 API 连接方式</p>
 
-                <div style="background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 13px;">
-                    <strong>使用说明：</strong> 设置连接 Token → 在 Token Updater 中配置本系统地址和 Token → 自动同步凭证
+                <div style="margin-bottom: 15px;">
+                    <button class="btn btn-small" onclick="loadModelsApiInfo()" style="background-color: #17a2b8;">🔄 刷新</button>
                 </div>
 
-                <div style="padding: 16px; border: 1px solid #e1e4e8; border-radius: 8px; background: #f8f9fa; margin-bottom: 16px;">
-                    <div class="form-group">
-                        <label for="pluginToken">连接 Token:</label>
-                        <input type="text" id="pluginToken" placeholder="设置连接 Token" />
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn" style="flex: 1;" onclick="savePluginConfig()">保存</button>
-                        <button class="btn" style="flex: 1; background-color: #6c757d;" onclick="generatePluginToken()">随机生成</button>
-                    </div>
-                </div>
-
-                <div style="padding: 16px; border: 1px solid #e1e4e8; border-radius: 8px; background: #f8f9fa; margin-bottom: 16px;">
-                    <h4 style="margin-top: 0; font-size: 14px;">📋 接口地址</h4>
-                    <div style="background: #fff; border: 1px solid #ddd; border-radius: 5px; padding: 10px; font-family: monospace; font-size: 12px; word-break: break-all;">
-                        POST <span id="pluginApiUrl">/api/plugin/update-token</span>
+                <!-- API Key -->
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+                    <strong>🔑 API Key</strong>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                        <input type="text" id="modelsApiKey" class="config-input" readonly style="font-family: monospace; font-size: 12px; flex: 1;" value="加载中...">
+                        <button class="cred-btn view" onclick="toggleApiKeyVisibility()" id="apiKeyToggleBtn" style="font-size: 11px;">👁</button>
+                        <button class="cred-btn download" onclick="copyModelsText(document.getElementById('modelsApiKey').dataset.realValue || '')" style="font-size: 11px;">📋</button>
                     </div>
                 </div>
 
-                <div id="pluginStatusSection" style="padding: 16px; border: 1px solid #e1e4e8; border-radius: 8px; background: #f8f9fa;">
-                    <div id="pluginStatusContent"><p style="color: #999;">加载中...</p></div>
+                <!-- GCLI 模式 -->
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+                    <strong>📦 GCLI 模式</strong>
+                    <div style="margin-top: 10px; overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead><tr style="background: #e3f2fd;">
+                                <th style="padding: 6px; text-align: left; border: 1px solid #dee2e6;">格式</th>
+                                <th style="padding: 6px; text-align: left; border: 1px solid #dee2e6;">端点</th>
+                                <th style="padding: 6px; text-align: center; border: 1px solid #dee2e6; width: 40px;">📋</th>
+                            </tr></thead>
+                            <tbody id="gcliEndpointsBody"><tr><td colspan="3" style="padding: 6px; text-align: center; color: #999;">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="toggleModelList('gcli')">
+                            <span>模型列表</span>
+                            <span id="gcliModelCount" style="color: #666; font-size: 11px;">加载中...</span>
+                            <span id="gcliModelToggle" style="font-size: 11px;">▶</span>
+                        </div>
+                        <div id="gcliModelList" style="display: none; margin-top: 8px; max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px;"></div>
+                    </div>
+                </div>
+
+                <!-- Antigravity 模式 -->
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+                    <strong>🚀 Antigravity 模式</strong>
+                    <div style="margin-top: 10px; overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead><tr style="background: #fff3e0;">
+                                <th style="padding: 6px; text-align: left; border: 1px solid #dee2e6;">格式</th>
+                                <th style="padding: 6px; text-align: left; border: 1px solid #dee2e6;">端点</th>
+                                <th style="padding: 6px; text-align: center; border: 1px solid #dee2e6; width: 40px;">📋</th>
+                            </tr></thead>
+                            <tbody id="antigravityEndpointsBody"><tr><td colspan="3" style="padding: 6px; text-align: center; color: #999;">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="toggleModelList('antigravity')">
+                            <span>模型列表</span>
+                            <span id="antigravityModelCount" style="color: #666; font-size: 11px;">加载中...</span>
+                            <span id="antigravityModelToggle" style="font-size: 11px;">▶</span>
+                        </div>
+                        <div id="antigravityModelList" style="display: none; margin-top: 8px; max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px;"></div>
+                    </div>
+                </div>
+
+                <!-- 认证方式 -->
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.6;">
+                    <strong>🔐 认证方式</strong>
+                    <ul style="padding-left: 16px; margin-top: 8px;">
+                        <li><code>Authorization: Bearer {KEY}</code></li>
+                        <li><code>x-api-key: {KEY}</code></li>
+                        <li><code>x-goog-api-key: {KEY}</code></li>
+                        <li>URL: <code>?key={KEY}</code></li>
+                    </ul>
                 </div>
             </div>
 
