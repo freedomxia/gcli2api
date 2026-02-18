@@ -97,3 +97,14 @@ log.txt
 *.bak
 
 tools/
+
+# System temp files
+DidFinish.txt
+WillFinish.txt
+*.lock
+boost_interprocess/
+com.sangfor.atrust/
+com.apple.launchd.*/
+cirrusgate/
+aTrustInstallOut.log
+dnscache.json

@@ -1000,6 +1000,7 @@ function triggerTabDataLoad(tabName) {
     if (tabName === 'manage') AppState.creds.refresh();
     if (tabName === 'antigravity-manage') AppState.antigravityCreds.refresh();
     if (tabName === 'config') loadConfig();
+    if (tabName === 'plugin') loadPluginConfig();
     if (tabName === 'logs') connectWebSocket();
 }
 
@@ -3148,3 +3149,85 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+
+// =====================================================================
+// 插件连接相关函数
+// =====================================================================
+
+async function loadPluginConfig() {
+    try {
+        // 加载当前配置
+        const configResp = await fetch('/config/get', {
+            headers: { 'Authorization': 'Bearer ' + AppState.authToken }
+        });
+        if (configResp.ok) {
+            const data = await configResp.json();
+            const cfg = data.config || {};
+            const tokenInput = document.getElementById('pluginToken');
+            if (tokenInput && cfg.plugin_connection_token) {
+                tokenInput.value = cfg.plugin_connection_token;
+            }
+        }
+
+        // 更新 API URL 显示
+        const apiUrlEl = document.getElementById('pluginApiUrl');
+        if (apiUrlEl) {
+            apiUrlEl.textContent = window.location.origin + '/api/plugin/update-token';
+        }
+
+        // 加载插件状态
+        const statusResp = await fetch('/api/plugin/status');
+        if (statusResp.ok) {
+            const status = await statusResp.json();
+            const statusEl = document.getElementById('pluginStatusContent');
+            if (statusEl) {
+                if (status.enabled) {
+                    statusEl.innerHTML = '<p style="color: #28a745; font-weight: bold;">✅ 插件连接已启用</p>' +
+                        '<p style="color: #555;">外部 Token Updater 可以通过 API 推送凭证。</p>';
+                } else {
+                    statusEl.innerHTML = '<p style="color: #ff9800; font-weight: bold;">⚠️ 插件连接未配置</p>' +
+                        '<p style="color: #555;">请设置连接 Token 后保存。</p>';
+                }
+            }
+        }
+    } catch (e) {
+        console.error('加载插件配置失败:', e);
+    }
+}
+
+function generatePluginToken() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = 'gcli2api_';
+    for (let i = 0; i < 32; i++) {
+        token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    document.getElementById('pluginToken').value = token;
+}
+
+async function savePluginConfig() {
+    const token = document.getElementById('pluginToken').value.trim();
+
+    try {
+        const resp = await fetch('/config/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + AppState.authToken
+            },
+            body: JSON.stringify({
+                config: { plugin_connection_token: token }
+            })
+        });
+
+        if (resp.ok) {
+            showStatus('插件配置已保存', 'success');
+            loadPluginConfig();
+        } else {
+            const err = await resp.json();
+            showStatus('保存失败: ' + (err.detail || '未知错误'), 'error');
+        }
+    } catch (e) {
+        showStatus('保存失败: ' + e.message, 'error');
+    }
+}

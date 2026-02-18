@@ -1011,6 +1011,7 @@
                 <button class="tab" onclick="switchTab('manage')">GCLI凭证</button>
                 <button class="tab" onclick="switchTab('antigravity-manage')">AG凭证</button>
                 <button class="tab" onclick="switchTab('config')">配置管理</button>
+                <button class="tab" onclick="switchTab('plugin')">插件连接</button>
                 <button class="tab" onclick="switchTab('logs')">实时日志</button>
                 <button class="tab" onclick="switchTab('about')">项目信息</button>
             </div>
@@ -1887,6 +1888,38 @@
 
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- 插件连接标签页 -->
+            <div id="pluginTab" class="tab-content">
+                <h3>🔌 插件连接</h3>
+                <p>配置外部 Token Updater 自动推送凭证</p>
+
+                <div style="background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 13px;">
+                    <strong>使用说明：</strong> 设置连接 Token → 在 Token Updater 中配置本系统地址和 Token → 自动同步凭证
+                </div>
+
+                <div style="padding: 16px; border: 1px solid #e1e4e8; border-radius: 8px; background: #f8f9fa; margin-bottom: 16px;">
+                    <div class="form-group">
+                        <label for="pluginToken">连接 Token:</label>
+                        <input type="text" id="pluginToken" placeholder="设置连接 Token" />
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" style="flex: 1;" onclick="savePluginConfig()">保存</button>
+                        <button class="btn" style="flex: 1; background-color: #6c757d;" onclick="generatePluginToken()">随机生成</button>
+                    </div>
+                </div>
+
+                <div style="padding: 16px; border: 1px solid #e1e4e8; border-radius: 8px; background: #f8f9fa; margin-bottom: 16px;">
+                    <h4 style="margin-top: 0; font-size: 14px;">📋 接口地址</h4>
+                    <div style="background: #fff; border: 1px solid #ddd; border-radius: 5px; padding: 10px; font-family: monospace; font-size: 12px; word-break: break-all;">
+                        POST <span id="pluginApiUrl">/api/plugin/update-token</span>
+                    </div>
+                </div>
+
+                <div id="pluginStatusSection" style="padding: 16px; border: 1px solid #e1e4e8; border-radius: 8px; background: #f8f9fa;">
+                    <div id="pluginStatusContent"><p style="color: #999;">加载中...</p></div>
                 </div>
             </div>
 
