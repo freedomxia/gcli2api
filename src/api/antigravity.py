@@ -190,7 +190,15 @@ async def stream_request(
                     if status_code == 429 or status_code == 503 or status_code in DISABLE_ERROR_CODES:
                         log.warning(f"[ANTIGRAVITY STREAM] 流式请求失败 (status={status_code}), 凭证: {current_file}, 响应: {error_body[:500] if error_body else '无'}")
 
-                        # 并行预热下一个凭证,不阻塞当前处理
+                        # 解析冷却时间
+                        cooldown_until = None
+                        if (status_code == 429 or status_code == 503) and error_body:
+                            try:
+                                cooldown_until = await parse_and_log_cooldown(error_body, mode="antigravity")
+                            except Exception:
+                                pass
+
+                        # 预热下一个凭证
                         if next_cred_task is None and attempt < max_retries:
                             next_cred_task = asyncio.create_task(
                                 credential_manager.get_valid_credential(
@@ -198,15 +206,7 @@ async def stream_request(
                                 )
                             )
 
-                        # 记录错误
-                        cooldown_until = None
-                        if (status_code == 429 or status_code == 503) and error_body:
-                            # 使用已缓存的error_body解析冷却时间
-                            try:
-                                cooldown_until = await parse_and_log_cooldown(error_body, mode="antigravity")
-                            except Exception:
-                                pass
-
+                        # 记录错误并切换凭证
                         await record_api_call_error(
                             credential_manager, current_file, status_code,
                             cooldown_until, mode="antigravity", model_name=model_name,
@@ -503,6 +503,14 @@ async def non_stream_request(
                 if status_code == 429 or status_code == 503 or status_code in DISABLE_ERROR_CODES:
                     log.warning(f"[ANTIGRAVITY] 非流式请求失败 (status={status_code}), 凭证: {current_file}, 响应: {error_text[:500] if error_text else '无'}")
 
+                    # 解析冷却时间
+                    cooldown_until = None
+                    if status_code == 429 or status_code == 503 and error_text:
+                        try:
+                            cooldown_until = await parse_and_log_cooldown(error_text, mode="antigravity")
+                        except Exception:
+                            pass
+
                     # 并行预热下一个凭证,不阻塞当前处理
                     if next_cred_task is None and attempt < max_retries:
                         next_cred_task = asyncio.create_task(
@@ -511,15 +519,7 @@ async def non_stream_request(
                             )
                         )
 
-                    # 记录错误
-                    cooldown_until = None
-                    if status_code == 429 or status_code == 503 and error_text:
-                        # 使用已缓存的error_text解析冷却时间
-                        try:
-                            cooldown_until = await parse_and_log_cooldown(error_text, mode="antigravity")
-                        except Exception:
-                            pass
-
+                    # 记录错误并切换凭证
                     await record_api_call_error(
                         credential_manager, current_file, status_code,
                         cooldown_until, mode="antigravity", model_name=model_name,
